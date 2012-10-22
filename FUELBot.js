@@ -199,6 +199,8 @@ MYBOT.parsePM = function(nick, text){
 		client.say(MYBOT.channelname, toSay);
 
 		MYBOT.handledMsg = true;
+	}else if(lwcsText.indexOf('become primary') > -1){
+		MYBOT.isPrimaryBot = true;
 	}
 };
 
@@ -215,6 +217,8 @@ MYBOT.parseMessage = function(nick, text){
 		}
 		MYBOT.handledMsg = true;
 	}
+
+	MYBOT.checkPrimary(text);
 
 	if(lwcsText.indexOf("help") > -1){
 		client.say(nick, "commands are: 'show history N', 'help', 'behave!', 'giveop', 'who is primary?', 'say [your msg here, ommit the brackets]'");
@@ -280,6 +284,16 @@ MYBOT.parseMessage = function(nick, text){
 		if(lwcsText.indexOf("behave!") > -1){
 			client.say(MYBOT.channelname, nick + "... I apologize. That was uncalled for.");
 		}
+	}
+};
+
+MYBOT.checkPrimary = function(nick, text){
+	var findPrimary = /make ([a-zA-Z0-9\_\-]+) primary/g;
+	var primary = findPrimary.exec(text);
+
+	if(primary && primary[1] && primary[1].length > 0){
+		client.say(primary, "become primary");
+		MYBOT.seekFellows(0, true);//failsafe in case the other bot doesn't exist
 	}
 };
 
