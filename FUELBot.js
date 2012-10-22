@@ -219,7 +219,7 @@ MYBOT.parseMessage = function(nick, text){
 		MYBOT.handledMsg = true;
 	}
 
-	MYBOT.checkPrimary(text);
+	MYBOT.handlePrimary(nick, text);
 
 	if(lwcsText.indexOf("help") > -1){
 		client.say(nick, "commands are: 'show history N', 'help', 'behave!', 'giveop', 'who is primary?', 'say [your msg here, ommit the brackets]'");
@@ -288,16 +288,13 @@ MYBOT.parseMessage = function(nick, text){
 	}
 };
 
-MYBOT.checkPrimary = function(text){
-	console.log('preparing to change primary:', text);
+MYBOT.handlePrimary = function(nick, text){
 	var findPrimary = /make ([a-zA-Z0-9\_\-]+) primary/g;
 	var primary = findPrimary.exec(text);
 
 	if(MYBOT.isPrimaryBot && primary && primary[1] && primary[1].length > 0){
 		client.say(primary[1], "become primary");
 		MYBOT.seekFellows(0, true);//failsafe in case the other bot doesn't exist
-	}else{
-		console.log('Either not primary bot, or couldn\'t parse bot name');
 	}
 };
 
