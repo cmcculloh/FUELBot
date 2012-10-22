@@ -24,19 +24,6 @@ var client = new irc.Client('irc.freenode.net', MYBOT.nick, {
 });
 
 
-//Handle private messages
-client.addListener('pm', function (from, message) {
-		console.log(from + ' => ME: ' + message);
-		if(message === "PING"){
-			console.log('received PING from ', from, ' responding...');
-			client.say(from, "PONG");
-		}else if(message === "PONG"){
-			console.log('received PONG from ', from, ' logging...');
-			MYBOT.pongs++;
-		}
-		MYBOT.parseMessage(from, message);
-});//End of pm listener
-
 //Handle on connect event
 client.addListener("connect", function () {
 	MYBOT.handleArrival(MYBOT.channelname, MYBOT.nick, "connect");
@@ -143,13 +130,39 @@ MYBOT.handleLeave = function(nick, reason, message){
 	}
 };
 
+//Handle private messages
+client.addListener('pm', function (from, message) {
+		console.log(from + ' => ME: ' + message);
+		if(message === "PING"){
+			console.log('received PING from ', from, ' responding...');
+			client.say(from, "PONG");
+		}else if(message === "PONG"){
+			console.log('received PONG from ', from, ' logging...');
+			MYBOT.pongs++;
+		}
+
+
+		//reset to false for next time...
+		MYBOT.handledMsg = false;
+		MYBOT.parsePM(from, message);
+		MYBOT.parseMessage(from, message);
+		if(!handledMsg){
+			client.say(nick, nick + ", I don't understand '" + text + "'");
+		}
+});//End of pm listener
+
 //Handle on message in target channel event
 client.addListener("message" + MYBOT.channelname, function (nick,text) {
 	MYBOT.logMessage(nick, text);
 
 	if(MYBOT.isPrimaryBot){
 		if(!MYBOT.isExternalBot(nick)){
-			MYBOT.parseMessage(nick, text);
+			//reset to false for next time...
+			MYBOT.handledMsg = false;
+			MYBOT.parseMessage(from, message);
+			if(!handledMsg){
+				client.say(nick, nick + ", I don't understand '" + text + "'");
+			}
 		}
 	}else{
 		console.log('not primary, defer to primary');
@@ -178,10 +191,20 @@ MYBOT.handleDieRoll = function(dieRoll, nick){
 	return total;
 };
 
+MYBOT.handledMsg = false;
+MYBOT.parsePM = function(nick, text){
+	lwcsText = text.toLowerCase();
+	if(lwcsText.indexOf('say ') > -1){
+		var toSay = lwcsText.replace('say ', '');
+		client.say(MYBOT.channelname, toSay);
+
+		MYBOT.handledMsg = true;
+	}
+};
+
 MYBOT.parseMessage = function(nick, text){
 	lwcsText = text.toLowerCase();
 	var botnick = MYBOT.nick.toLowerCase();
-	var handled = false;
 	var botNameSaid = (lwcsText.indexOf(botnick) > -1);
 
 	if(lwcsText.indexOf("who is primary?") > -1){
@@ -190,13 +213,13 @@ MYBOT.parseMessage = function(nick, text){
 		}else{
 			client.say(nick, "Not me");
 		}
-		handled = true;
+		MYBOT.handledMsg = true;
 	}
 
 	if(lwcsText.indexOf("help") > -1){
-		client.say(nick, "commands are: 'show history N', 'help', 'behave!', 'giveop', 'who is primary?'");
-		client.say(nick, "roll dice by specifying the number of dice followed by a 'd' followed by the sides the die should have all inside brackets. Like: [1d20] or [3d4]");
-		handled = true;
+		client.say(nick, "commands are: 'show history N', 'help', 'behave!', 'giveop', 'who is primary?', 'say [your msg here, ommit the brackets]'");
+		client.say(nick, "roll dice by specifying the number of dice followed by a 'd' followed by the sides the die should have all inside brackets. Like: [1d20] or [3d4]. To do a skill check, say 'skill check dc N(1-20)' like: 'skill check dc 12'");
+		MYBOT.handledMsg = true;
 	}
 
 	var dieRollRE = /\[([0-9]+)d([0-9]+)\]/g;
@@ -204,7 +227,7 @@ MYBOT.parseMessage = function(nick, text){
 
 	if(dieRoll && dieRoll.length > 0){
 		MYBOT.handleDieRoll(dieRoll, nick);
-		handled = true;
+		MYBOT.handledMsg = true;
 	}
 
 
@@ -219,12 +242,14 @@ MYBOT.parseMessage = function(nick, text){
 		}else{
 			client.say(MYBOT.channelname, "Fail :(");
 		}
+
+		MYBOT.handledMsg = true;
 	}
 
 	if(lwcsText.indexOf("show history") > -1){
 		MYBOT.showHistory(nick, lwcsText);
 
-		handled = true;
+		MYBOT.handledMsg = true;
 	}
 
 	if(lwcsText.indexOf("giveop") > -1){
@@ -235,30 +260,25 @@ MYBOT.parseMessage = function(nick, text){
 			client.say(MYBOT.channelname, "uh uh uh! You didn't say the magic word!");
 		}
 
-		handled = true;
+		MYBOT.handledMsg = true;
 	}
 
 	if(lwcsText.indexOf("gimmeopyo") > -1 && FUELBotNames.indexOf(nick) > -1 && lwcsText.indexOf(MYBOT.password) > -1){
 		client.send('MODE', MYBOT.channelname, '+o', nick);
 
-		handled = true;
+		MYBOT.handledMsg = true;
 	}
 
 	if(lwcsText === "cookie"){
 		client.say(MYBOT.channelname, "EXTERMINATE! EXTERMINATE!");
 
-		handled = true;
+		MYBOT.handledMsg = true;
 	}
 
-	//detect if someone said the bots name and make sure it wasn't another bot
-	if(botNameSaid && !MYBOT.isBot(nick) && !handled){
+	//handle messages that require the bot's name to have been said
+	if(botNameSaid && !MYBOT.isBot(nick) && !MYBOT.handledMsg){
 		if(lwcsText.indexOf("behave!") > -1){
 			client.say(MYBOT.channelname, nick + "... I apologize. That was uncalled for.");
-		}else if(lwcsText.indexOf(MYBOT.nick + ", when I say") > -1){
-
-
-		}else if(lwcsText.match(new RegExp(botnick, "g")).length === 1){
-			client.say(nick, nick + ", I don't understand '" + text + "'");
 		}
 	}
 };
@@ -280,11 +300,11 @@ MYBOT.showHistory = function(nick, text){
 	var response = "history: ";
 	while(num > 0){
 		slot = MYBOT.msgs.length - num;
-		console.log(num, "/", MYBOT.msgs.length, ": ", slot);
 		response += "\n " + MYBOT.msgs[slot].when + " (" + MYBOT.msgs[slot].nick + ") " + MYBOT.msgs[slot].text;
 		num--;
 	}
 	client.say(nick, response);
+	console.log('history:', response);
 };
 
 MYBOT.randomAdminQuote = function(nick){
