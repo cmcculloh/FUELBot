@@ -147,7 +147,7 @@ client.addListener('pm', function (from, message) {
 		MYBOT.parsePM(from, message);
 		MYBOT.parseMessage(from, message);
 		if(!handledMsg){
-			client.say(nick, nick + ", I don't understand '" + text + "'");
+			client.say(from, from + ", I don't understand '" + text + "'");
 		}
 });//End of pm listener
 
@@ -159,7 +159,7 @@ client.addListener("message" + MYBOT.channelname, function (nick,text) {
 		if(!MYBOT.isExternalBot(nick)){
 			//reset to false for next time...
 			MYBOT.handledMsg = false;
-			MYBOT.parseMessage(from, message);
+			MYBOT.parseMessage(nick, text);
 			if(!handledMsg){
 				client.say(nick, nick + ", I don't understand '" + text + "'");
 			}
@@ -193,7 +193,7 @@ MYBOT.handleDieRoll = function(dieRoll, nick){
 
 MYBOT.handledMsg = false;
 MYBOT.parsePM = function(nick, text){
-	lwcsText = text.toLowerCase();
+	var lwcsText = text.toLowerCase();
 	if(lwcsText.indexOf('say ') > -1){
 		var toSay = lwcsText.replace('say ', '');
 		client.say(MYBOT.channelname, toSay);
@@ -203,7 +203,7 @@ MYBOT.parsePM = function(nick, text){
 };
 
 MYBOT.parseMessage = function(nick, text){
-	lwcsText = text.toLowerCase();
+	var lwcsText = text.toLowerCase();
 	var botnick = MYBOT.nick.toLowerCase();
 	var botNameSaid = (lwcsText.indexOf(botnick) > -1);
 
