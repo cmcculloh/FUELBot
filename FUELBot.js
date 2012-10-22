@@ -81,7 +81,7 @@ MYBOT.handleWhoIs = function(){
 	}else{
 		MYBOT.isPrimaryBot = true;
 		client.send('MODE', MYBOT.channelname, '+pst', MYBOT.channelname);
-		client.send('MODE', MYBOT.channelname, '+k', "fuel99$");
+		client.send('MODE', MYBOT.channelname, '+k', MYBOT.password);
 		client.send('TOPIC', MYBOT.channelname, '"The completely non-sanctioned, unofficial place to hang out and discuss ' + MYBOT.channelname + ' related things."');
 	}
 };
@@ -123,12 +123,12 @@ MYBOT.seekFellows = function(timesSought, seekOp){
 };
 
 client.addListener("part", function (channel, nick, reason, message) {
-	console.log('part');
+	console.log(nick, 'part');
 	MYBOT.handleLeave(nick, reason, message);
 });
 
 client.addListener("quit", function (nick, reason, channels, message) {
-	console.log('quit');
+	console.log(nick, 'quit');
 	MYBOT.handleLeave(nick, reason, message);
 });
 
@@ -166,6 +166,9 @@ MYBOT.logMessage = function(nick, text){
 };
 
 MYBOT.handleDieRoll = function(dieRoll, nick){
+	if(dieRoll[1] > 30){dieRoll[1] = 30;}
+	if(dieRoll[2] > 200){dieRoll[2] = 200;}
+
 	var total = 0;
 	for(var i = 1; i <= dieRoll[1]; i++){
 		total += Math.ceil(Math.random()*dieRoll[2]);
