@@ -174,6 +174,8 @@ MYBOT.handleDieRoll = function(dieRoll, nick){
 		total += Math.ceil(Math.random()*dieRoll[2]);
 	}
 	client.say(MYBOT.channelname, [nick, ": ", dieRoll[1], "d", dieRoll[2], ": ", total].join(''));
+
+	return total;
 };
 
 MYBOT.parseMessage = function(nick, text){
@@ -203,6 +205,20 @@ MYBOT.parseMessage = function(nick, text){
 	if(dieRoll && dieRoll.length > 0){
 		MYBOT.handleDieRoll(dieRoll, nick);
 		handled = true;
+	}
+
+
+	var dcRE = /(dc|difficulty)?[\ ]*([0-9]+)/g;
+	var dc = dcRE.exec(lwcsText);
+
+	if(lwcsText.indexOf('skill check') > -1 && dc && dc.length > 1){
+		var roll = MYBOT.handleDieRoll(["[1d20]", 1, 20], nick);
+
+		if(dc[2] <= roll){
+			client.say(MYBOT.channelname, "Succeed!");
+		}else{
+			client.say(MYBOT.channelname, "Fail :(");
+		}
 	}
 
 	if(lwcsText.indexOf("show history") > -1){
