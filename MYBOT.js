@@ -128,19 +128,85 @@ function MYBOT(config){
 		return total;
 	};
 
-	//responses to messages
-	var responses = {
+	//responses to messages can either manifest as public messages or PMs
+	self.responses = {
 		"how are you feeling": function(){return "fine, thanks!";},
 		"behave!": function(){return "...I apologize. That was uncalled for.";},
-		"can you hear me?": function(){return "yes, I can.";}
+		"can you hear me?": function(){return "yes, I can.";},
+		"who is primary?": function(){
+			if(self.isPrimaryBot){
+				return "I am!";
+			}
+		}
 	};
 
 	//public responses to private messages
-	var publicPMResponses = {
+	self.publicPMResponses = {
 		"say": function(msg){return msg.replace('say ', '');},
 		"become primary": function(){
 			self.isPrimaryBot = true;
 			return "I am now primary";
+		}
+	};
+
+	//responses intended only to be PMed to a user
+	self.privateResponses = {
+		"help": function(){
+			var response = "";
+
+			response += "Bots will respond publicly to these PMs:";
+			for(var trigger in self.publicPMResponses){
+				response += "\n    " + trigger;
+			}
+
+			response += "\n\nBots will respond in kind to these messages and PMs:";
+			for(var trigger in self.responses){
+				response += "\n    " + trigger;
+			}
+
+			response += "\n\nBots will respond privately to these messages and PMs:";
+			for(var trigger in self.privateResponses){
+				response += "\n    " + trigger;
+			}
+			return response;
+		},
+		"show history":function(msg){
+			var findN = /show\ history\ ([0-9]*)/g;
+			var foundN = findN.exec(text);
+			var num;
+
+			if(foundN && foundN[1] && foundN[1] > 0){
+				num = foundN[1];
+			}else{
+				num = 10;
+				if(num > self.msgs.length){
+					num = self.msgs.length;
+				}
+			}
+
+			var response = "history: ";
+			while(num > 0){
+				slot = self.msgs.length - num;
+				response += "\n " + self.msgs[slot].when + " (" + self.msgs[slot].nick + ") " + self.msgs[slot].text;
+				num--;
+			}
+
+			return response;
+		}
+	};
+
+	self.respond = function(to, msg, list){
+		lwcsMsg = msg.toLowerCase();
+
+		for(var trigger in list){
+			if(lwcsMsg.indexOf(trigger) > -1){
+				var say = list[trigger](msg);
+
+				if(say){
+					self.handled = true;
+					self.client.say(to, say);
+				}
+			}
 		}
 	};
 
@@ -149,53 +215,28 @@ function MYBOT(config){
 		var botnick = self.opts.nick.toLowerCase();
 		var botNameSaid = (lwcsText.indexOf(botnick) > -1);
 
-		console.log('parseMentions: ', to, text);
-
 		//handle messages that require the bot's name to have been said
 		if(botNameSaid && !isBot(from) && !self.handledMsg){
-			self.respond(to, lwcsText, responses);
+			self.respond(to, lwcsText, self.responses);
+			self.respond(from, lwcsText, self.privateResponses);
 		}
 	};
 
-	self.respond = function(to, msg, list){
-		lwcsMsg = msg.toLowerCase();
-
-		for(var trigger in list){
-			console.log('trigger: ', trigger, msg);
-			if(lwcsMsg.indexOf(trigger) > -1){
-				console.log('yes');
-				var say = list[trigger](msg);
-				console.log(msg);
-				self.handled = true;
-				self.client.say(to, say);
-			}
-		}
-	};
 
 	self.parsePM = function(nick, text){
-		self.respond(self.opts.channelName, text, publicPMResponses);
-		self.respond(nick, text, responses);
+		self.respond(self.opts.channelName, text, self.publicPMResponses);
+		self.respond(nick, text, self.responses);
+		self.respond(from, lwcsText, self.privateResponses);
 	};
 
 	self.parseMessage = function(nick, text){
 		var lwcsText = text.toLowerCase();
 
-		if(lwcsText.indexOf("who is primary?") > -1){
-			if(self.isPrimaryBot){
-				self.client.say(self.opts.channelName, "I am!");
-			}else{
-				self.client.say(nick, "Not me");
-			}
-			self.handledMsg = true;
-		}
+		self.respond(self.opts.channelName, text, self.responses);
+		self.respond(nick, text, self.privateResponses);
 
 		self.handlePrimary(nick, text);
 
-		if(lwcsText.indexOf("help") > -1){
-			self.client.say(nick, "commands are: 'show history N', 'help', 'behave!', 'giveop', 'who is primary?', 'say [your msg here, ommit the brackets]'");
-			self.client.say(nick, "roll dice by specifying the number of dice followed by a 'd' followed by the sides the die should have all inside brackets. Like: [1d20] or [3d4]. To do a skill check, say 'skill check dc N(1-20)' like: 'skill check dc 12'");
-			self.handledMsg = true;
-		}
 
 		var dieRollRE = /\[([0-9]+)d([0-9]+)\]/g;
 		var dieRoll = dieRollRE.exec(lwcsText);
@@ -217,12 +258,6 @@ function MYBOT(config){
 			}else{
 				self.client.say(self.opts.channelName, "Fail :(");
 			}
-
-			self.handledMsg = true;
-		}
-
-		if(lwcsText.indexOf("show history") > -1){
-			self.showHistory(nick, lwcsText);
 
 			self.handledMsg = true;
 		}
@@ -259,30 +294,6 @@ function MYBOT(config){
 			self.client.say(primary[1], "become primary");
 			self.seekFellows(0, true);//failsafe in case the other bot doesn't exist
 		}
-	};
-
-	self.showHistory = function(nick, text){
-		var findN = /show\ history\ ([0-9]*)/g;
-		var foundN = findN.exec(text);
-		var num;
-
-		if(foundN && foundN[1] && foundN[1] > 0){
-			num = foundN[1];
-		}else{
-			num = 10;
-			if(num > self.msgs.length){
-				num = self.msgs.length;
-			}
-		}
-
-		var response = "history: ";
-		while(num > 0){
-			slot = self.msgs.length - num;
-			response += "\n " + self.msgs[slot].when + " (" + self.msgs[slot].nick + ") " + self.msgs[slot].text;
-			num--;
-		}
-		self.client.say(nick, response);
-		console.log('history:', response);
 	};
 
 	self.randomAdminQuote = function(nick){
