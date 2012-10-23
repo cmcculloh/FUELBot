@@ -12,7 +12,7 @@ MYBOT.password = process.argv[4];
 
 EXTERNALBotNames = ["GitHubBot"];
 
-FUELBotNames = ["FUELBot", "FUEL_RoButler"];
+FUELBotNames = ["FUELBot", "FUEL_RoButler", "FUELBot1", "FUEL_RoButler1"];
 
 //Open an irc connection
 var client = new irc.Client('irc.freenode.net', MYBOT.nick, {
@@ -144,6 +144,7 @@ client.addListener('pm', function (from, message) {
 
 		//reset to false for next time...
 		MYBOT.handledMsg = false;
+		MYBOT.parseMentions(from, message);
 		MYBOT.parsePM(from, message);
 		MYBOT.parseMessage(from, message);
 		if(!handledMsg){
@@ -154,6 +155,8 @@ client.addListener('pm', function (from, message) {
 //Handle on message in target channel event
 client.addListener("message" + MYBOT.channelname, function (nick,text) {
 	MYBOT.logMessage(nick, text);
+
+	MYBOT.parseMentions(nick, text);
 
 	if(MYBOT.isPrimaryBot){
 		if(!MYBOT.isExternalBot(nick)){
@@ -191,6 +194,18 @@ MYBOT.handleDieRoll = function(dieRoll, nick){
 	return total;
 };
 
+MYBOT.parseMentions = function(nick, text){
+	var botnick = MYBOT.nick.toLowerCase();
+	var botNameSaid = (lwcsText.indexOf(botnick) > -1);
+
+	//handle messages that require the bot's name to have been said
+	if(botNameSaid && !MYBOT.isBot(nick) && !MYBOT.handledMsg){
+		if(lwcsText.indexOf("behave!") > -1){
+			client.say(MYBOT.channelname, nick + "... I apologize. That was uncalled for.");
+		}
+	}
+};
+
 MYBOT.handledMsg = false;
 MYBOT.parsePM = function(nick, text){
 	var lwcsText = text.toLowerCase();
@@ -207,8 +222,6 @@ MYBOT.parsePM = function(nick, text){
 
 MYBOT.parseMessage = function(nick, text){
 	var lwcsText = text.toLowerCase();
-	var botnick = MYBOT.nick.toLowerCase();
-	var botNameSaid = (lwcsText.indexOf(botnick) > -1);
 
 	if(lwcsText.indexOf("who is primary?") > -1){
 		if(MYBOT.isPrimaryBot){
@@ -278,13 +291,6 @@ MYBOT.parseMessage = function(nick, text){
 		client.say(MYBOT.channelname, "EXTERMINATE! EXTERMINATE!");
 
 		MYBOT.handledMsg = true;
-	}
-
-	//handle messages that require the bot's name to have been said
-	if(botNameSaid && !MYBOT.isBot(nick) && !MYBOT.handledMsg){
-		if(lwcsText.indexOf("behave!") > -1){
-			client.say(MYBOT.channelname, nick + "... I apologize. That was uncalled for.");
-		}
 	}
 };
 
