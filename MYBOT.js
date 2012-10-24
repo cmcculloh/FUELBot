@@ -45,6 +45,27 @@ function MYBOT(config){
 		}
 	};
 
+	self.handleMessage = function(nick, text){
+		self.logMessage(nick, text);
+
+		self.parseMentions(nick, self.opts.channelName, text);
+
+		if(self.isPrimaryBot){
+			if(!isExternalBot(nick)){
+				//reset to false for next time...
+				self.handledMsg = false;
+				self.parseMessage(nick, text);
+				if(!self.handledMsg){
+					client.say(nick, nick + ", I don't understand '" + text + "'");
+				}
+			}else{
+				console.log(nick + ' is an external bot, ignoring');
+			}
+		}else{
+			console.log('not primary, defer to primary');
+		}
+	};
+
 	self.handleWhoIs = function(){
 		if(arguments[0].channels.indexOf("@" + self.opts.channelName) <= -1 && arguments[0].channels.indexOf(self.opts.channelName) >= -1){
 			console.log(arguments[0].channels.indexOf("@" + self.opts.channelName), arguments[0].channels, self.opts.channelName);
@@ -74,11 +95,9 @@ function MYBOT(config){
 				}
 			}
 
-			console.log('prepare settimeout');
 			setTimeout(self.seekFellows, 500, timesSought, seekOp);
 		}else if(timesSought < 11){
 			if(self.pongs <= 0){
-				console.log("prepare settimeout, timesSought: " , timesSought, "; pongs: " , self.pongs);
 				setTimeout(self.seekFellows, 500, timesSought, seekOp);
 			}else{
 				console.log("PONGs received, not primary");
@@ -115,18 +134,26 @@ function MYBOT(config){
 		console.log(when, nick, text);
 	};
 
+	self.grantOp = function(nick){
+		self.client.send('MODE', self.opts.channelName, '+o', nick);
+	};
+
+	self.deOp = function(nick){
+		self.client.send('MODE', self.opts.channelName, '-o', nick);
+	};
+
 	self.handleDieRoll = function(dieRoll, nick){
 		if(dieRoll[1] > 30){dieRoll[1] = 30;}
 		if(dieRoll[2] > 200){dieRoll[2] = 200;}
 
-		var total = 0;
+		dieRoll[3] = 0;
 		for(var i = 1; i <= dieRoll[1]; i++){
-			total += Math.ceil(Math.random()*dieRoll[2]);
+			dieRoll[3] += Math.ceil(Math.random()*dieRoll[2]);
 		}
-		self.client.say(self.opts.channelName, [nick, ": ", dieRoll[1], "d", dieRoll[2], ": ", total].join(''));
 
-		return total;
+		return dieRoll;
 	};
+
 
 	//responses to messages can either manifest as public messages or PMs
 	self.responses = {
@@ -137,6 +164,46 @@ function MYBOT(config){
 			if(self.isPrimaryBot){
 				return "I am!";
 			}
+		},
+		"d": function(msg, to, from){
+			var dieRollRE = /\[([0-9]+)d([0-9]+)\]/g;
+			var dieRoll = dieRollRE.exec(msg);
+
+			if(dieRoll && dieRoll.length > 0){
+				dieRoll = self.handleDieRoll(dieRoll);
+
+				return [from, ": ", dieRoll[1], "d", dieRoll[2], ": ", dieRoll[3]].join('');
+			}
+		},
+		"skill check": function(msg, to, from){
+			var dcRE = /(dc|difficulty)?[\ ]*([0-9]+)/g;
+			var dc = dcRE.exec(msg);
+
+			if(dc && dc.length > 1){
+				var roll = self.handleDieRoll(["[1d20]", 1, 20], from);
+
+				if(dc[2] <= roll[3]){
+					return [roll[3], "/", dc[2], "; ", from, " succeeds!"].join('');
+				}else{
+					return roll[3] + "/" + dc[2] + "; " + from + " fails :(";
+				}
+			}
+		},
+		"giveop": function(msg, to, from){
+			if(msg.indexOf(self.opts.password) > -1){
+				self.grantOp(from);
+				return self.randomAdminQuote(to);
+			}else{
+				return "uh uh uh! You didn't say the magic word!";
+			}
+		},
+		"gimmeopyo": function(msg, to){
+			if(isBot(to) && msg.indexOf(self.opts.password) > -1){
+				self.grantOp(to);
+			}
+		},
+		"cookie": function(){
+			return "EXTERMINATE! EXTERMINATE!";
 		}
 	};
 
@@ -195,14 +262,15 @@ function MYBOT(config){
 		}
 	};
 
-	self.respond = function(to, msg, list){
+	self.respond = function(to, from, msg, list){
 		lwcsMsg = msg.toLowerCase();
 
 		for(var trigger in list){
 			if(lwcsMsg.indexOf(trigger) > -1){
-				var say = list[trigger](msg);
+				var say = list[trigger](msg, to, from);
 
 				if(say){
+					console.log('say: ', to, ", ", say);
 					self.handled = true;
 					self.client.say(to, say);
 				}
@@ -217,73 +285,23 @@ function MYBOT(config){
 
 		//handle messages that require the bot's name to have been said
 		if(botNameSaid && !isBot(from) && !self.handledMsg){
-			self.respond(to, lwcsText, self.responses);
-			self.respond(from, lwcsText, self.privateResponses);
+			self.respond(to, from, lwcsText, self.responses);
+			self.respond(from, from, lwcsText, self.privateResponses);
 		}
 	};
 
 
 	self.parsePM = function(nick, text){
-		self.respond(self.opts.channelName, text, self.publicPMResponses);
-		self.respond(nick, text, self.responses);
-		self.respond(from, lwcsText, self.privateResponses);
+		self.respond(self.opts.channelName, nick, text, self.publicPMResponses);
+		self.respond(nick, nick, text, self.responses);
+		self.respond(nick, nick, lwcsText, self.privateResponses);
 	};
 
 	self.parseMessage = function(nick, text){
-		var lwcsText = text.toLowerCase();
-
-		self.respond(self.opts.channelName, text, self.responses);
-		self.respond(nick, text, self.privateResponses);
+		self.respond(self.opts.channelName, nick, text, self.responses);
+		self.respond(nick, nick, text, self.privateResponses);
 
 		self.handlePrimary(nick, text);
-
-
-		var dieRollRE = /\[([0-9]+)d([0-9]+)\]/g;
-		var dieRoll = dieRollRE.exec(lwcsText);
-
-		if(dieRoll && dieRoll.length > 0){
-			self.handleDieRoll(dieRoll, nick);
-			self.handledMsg = true;
-		}
-
-
-		var dcRE = /(dc|difficulty)?[\ ]*([0-9]+)/g;
-		var dc = dcRE.exec(lwcsText);
-
-		if(lwcsText.indexOf('skill check') > -1 && dc && dc.length > 1){
-			var roll = self.handleDieRoll(["[1d20]", 1, 20], nick);
-
-			if(dc[2] <= roll){
-				self.client.say(self.opts.channelName, "Succeed!");
-			}else{
-				self.client.say(self.opts.channelName, "Fail :(");
-			}
-
-			self.handledMsg = true;
-		}
-
-		if(lwcsText.indexOf("giveop") > -1){
-			if(lwcsText.indexOf(self.opts.password) > -1){
-				self.client.say(self.opts.channelName, self.randomAdminQuote(nick));
-				self.client.send('MODE', self.opts.channelName, '+o', nick);
-			}else{
-				self.client.say(self.opts.channelName, "uh uh uh! You didn't say the magic word!");
-			}
-
-			self.handledMsg = true;
-		}
-
-		if(lwcsText.indexOf("gimmeopyo") > -1 && isBot(nick) && lwcsText.indexOf(self.opts.password) > -1){
-			self.client.send('MODE', self.opts.channelName, '+o', nick);
-
-			self.handledMsg = true;
-		}
-
-		if(lwcsText === "cookie"){
-			self.client.say(self.opts.channelName, "EXTERMINATE! EXTERMINATE!");
-
-			self.handledMsg = true;
-		}
 	};
 
 	self.handlePrimary = function(nick, text){

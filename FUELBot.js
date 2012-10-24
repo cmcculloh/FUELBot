@@ -45,7 +45,7 @@ MYBOT.client = client;
 
 //Handle on connect event
 client.addListener("connect", function () {
-	MYBOT.handleArrival(MYBOT.opts.channelname, MYBOT.opts.nick, "connect");
+	MYBOT.handleArrival(MYBOT.opts.channelName, MYBOT.opts.nick, "connect");
 });
 
 client.addListener("join", function(channel, nick, msg){
@@ -86,22 +86,7 @@ client.addListener('pm', function (from, message) {
 
 //Handle on message in target channel event
 client.addListener("message" + MYBOT.opts.channelName, function (nick,text) {
-	MYBOT.logMessage(nick, text);
-
-	MYBOT.parseMentions(nick, MYBOT.opts.channelName, text);
-
-	if(MYBOT.isPrimaryBot){
-		if(!MYBOT.isExternalBot(nick)){
-			//reset to false for next time...
-			MYBOT.handledMsg = false;
-			MYBOT.parseMessage(nick, text);
-			if(!handledMsg){
-				client.say(nick, nick + ", I don't understand '" + text + "'");
-			}
-		}
-	}else{
-		console.log('not primary, defer to primary');
-	}
+	MYBOT.handleMessage(nick, text);
 });
 
 
