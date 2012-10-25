@@ -1,30 +1,35 @@
 console.log("Bot Started...", process.argv);
 
-var config = require('./config').config;
-var irc = require('irc');
-var bot = require('./MYBOT');
+var rawArgs = process.argv;
+var args = {configFile:'config'};//setup args object, put default in for config file
 
-var args = process.argv;
-while(args.length > 0){
-	var arg = args[0].split('=');
+while(rawArgs.length > 0){
+	var arg = rawArgs[0].split('=');
 	var key = arg[0];
 	var val = arg[1];
 
 	switch(key){
 		case 'channelName':
-			config.channelName = "#" + val;
+			args.channelName = "#" + val;
 			break;
 		case 'nick':
-			config.nick = val;
+			args.nick = val;
 			break;
 		case 'password':
-			config.password = val;
+			args.password = val;
+			break;
+		case 'configFile':
+			args.configFile = val;
 			break;
 	}
 
-	args.shift();
+	rawArgs.shift();
 }
 
+
+var config = require('./configs/' + args.configFile).config;
+var irc = require('irc');
+var bot = require('./MYBOT');
 var MYBOT = new bot.MYBOT(config);
 
 

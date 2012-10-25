@@ -7,7 +7,10 @@ function MYBOT(config){
 		nick: config.nick || "FUELBot",
 		password: config.password || "",
 		EXTERNALBotNames: config.EXTERNALBotNames || ["GitHubBot"],
-		FUELBotNames: config.FUELBotNames || ["FUELBot", "FUELBot1", "FUELBot2"]
+		FUELBotNames: config.FUELBotNames || ["FUELBot", "FUELBot1", "FUELBot2"],
+		mode: config.mode || "+t-n",
+		privateChannel: config.privateChannel || false,
+		topic: config.topic || 'The completely non-sanctioned, unofficial place to hang out and discuss ' + config.channelName + ' related things.'
 	};
 	self.msgs = [];
 	self.handledMsg = false;
@@ -73,9 +76,13 @@ function MYBOT(config){
 			self.seekFellows(0, true);
 		}else{
 			self.isPrimaryBot = true;
-			self.client.send('MODE', self.opts.channelName, '+pst', self.opts.channelName);
-			self.client.send('MODE', self.opts.channelName, '+k', self.opts.password);
-			self.client.send('TOPIC', self.opts.channelName, '"The completely non-sanctioned, unofficial place to hang out and discuss ' + self.opts.channelName + ' related things."');
+			if(self.opts.mode){
+				self.client.send('MODE', self.opts.channelName, config.mode, self.opts.channelName);
+			}
+			if(self.opts.privateChannel){
+				self.client.send('MODE', self.opts.channelName, '+k', self.opts.password);
+			}
+			self.client.send('TOPIC', self.opts.channelName, self.opts.topic);
 		}
 	};
 
