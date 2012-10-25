@@ -7,7 +7,7 @@ module.exports.config = {
 	"nick": "Roberto",//what to call yourself
 	"password": "IAMAPASSFRAZ3",//password for both channel and interacting with bot
 	EXTERNALBotNames: ["GitHubBot"],//names of external bots that might interact with channel
-	FUELBotNames: ["Roberto", "Roberto1", "Roberto2"],//names of other instances of this bot that might interact with this bot
+	FUELBotNames: ["Roberto", "Roberto1", "Roberto2"],//names of all (this and other) instances of this bot that might interact with this bot
 	privateChannel: true,//whether the channel is private
 	mode: '+pst-n'//the different modes that should be set for the channel
 };
