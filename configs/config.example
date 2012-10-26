@@ -9,6 +9,8 @@ module.exports.config = {
 	EXTERNALBotNames: ["GitHubBot"],//names of external bots that might interact with channel
 	FUELBotNames: ["Roberto", "Roberto1", "Roberto2"],//names of all (this and other) instances of this bot that might interact with this bot
 	privateChannel: true,//whether the channel is private
-	mode: '+pst-n'//the different modes that should be set for the channel
+	mode: '+pst-n',//the different modes that should be set for the channel
+	canSpeak: true,//whether the bot has the ability to speak
+	askForOp: false//whether the bot should seek op
 };
 

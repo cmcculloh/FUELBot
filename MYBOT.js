@@ -10,12 +10,17 @@ function MYBOT(config){
 		FUELBotNames: config.FUELBotNames || ["FUELBot", "FUELBot1", "FUELBot2"],
 		mode: config.mode || "+t-n",
 		privateChannel: config.privateChannel || false,
-		topic: config.topic || 'The completely non-sanctioned, unofficial place to hang out and discuss ' + config.channelName + ' related things.'
+		topic: config.topic || 'The completely non-sanctioned, unofficial place to hang out and discuss ' + config.channelName + ' related things.',
+		debugMode: config.debugMode || false,
+		canSpeak: config.canSpeak || false,
+		askForOp: config.askForOp || false
 	};
 	self.msgs = [];
 	self.handledMsg = false;
 	self.isPrimaryBot = true;
 	self.pongs = 0;
+	self.potentialActions = [];
+	self.actions = [];
 
 	var isExternalBot = function(nick){
 		return (self.opts.EXTERNALBotNames.indexOf(nick) > -1);
@@ -33,14 +38,121 @@ function MYBOT(config){
 		return (nick === self.opts.nick);
 	};
 
+	var objectInArray = function(obj, arr){
+		var i;
+		for (i = 0; i < arr.length; i++) {
+			if (arr[i] === obj) {
+				console.log('object in array');
+				return true;
+			}
+		}
+
+		console.log('object not in array');
+		return false;
+	};
+
+	var abilities = require('fs').readdirSync('./abilities');
+	while(abilities.length > 0){
+		var fileName = abilities.shift();
+		if(fileName === ".DS_Store"){continue;}
+
+		ability = require('./abilities/' + fileName)(self);
+
+		//if trigger or action are undefined, skip it
+		if(typeof ability.simpleTrigger === undefined || typeof ability.doAction === undefined){continue;}
+
+		//set defaults if necessary
+		ability.actionName = ability.actionName || ability.simpleTrigger;
+		ability.showInHelp = ability.showInHelp || false;
+		ability.helpText = ability.helpText || "";
+		ability.trigger = ability.trigger || new RegExp(ability.simpleTrigger);
+		ability.responseMethods = ability.responseMethods || {"pm":"pm", "public":"public"};
+
+		self.actions.push(ability);
+	}
+
+	/* Build the potential actions list based on all registered actions */
+	self.buildActionList = function(){
+		for (var i=0; i < self.actions.length; i++){
+			var triggers = self.actions[i].simpleTrigger.split(" ");
+
+			while(triggers.length > 0){
+				var trigger = triggers.shift();
+
+				self.potentialActions[trigger] = self.potentialActions[trigger] || [];
+				self.potentialActions[trigger].push(self.actions[i]);
+			}
+		}
+	};
+	self.buildActionList();
+
+	var utils = require('fs').readdirSync('./utils');
+	while(utils.length > 0){
+		var util = utils.shift();
+
+		if(util.indexOf('.js') < 0){continue;}
+
+		//remove .js
+		util = util.replace('.js', '');
+
+		if(typeof self[util] === "undefined"){
+			self[util] = require('./utils/' + util);
+		}
+	}
+
+	console.log(self);
+
+	self.respond = function(from, msg, msgType){
+		var lwcsMsg = msg.toLowerCase();
+		var triedActions = [];
+
+		var msgParts = lwcsMsg.split(" ");
+		while(msgParts.length > 0){
+			var msgPart = msgParts.shift();
+			if(typeof self.potentialActions[msgPart] !== "object"){continue;}
+			for(var i = 0; i < self.potentialActions[msgPart].length; i++){
+				var action = self.potentialActions[msgPart][i];
+				if(objectInArray(action, triedActions) !== true){
+					triedActions.push(action);//log the fact that we tried this one
+					var matches = action.trigger.exec(msg);
+
+					if(matches){
+						var say = action.doAction(from, msg, matches, self);
+
+						if(typeof say !== "undefined"){
+							var responseType = action.responseMethods[msgType] || "pm";
+							var sayTo = self.opts.channelName;
+
+							if(responseType === "pm"){
+								sayTo = from;
+							}
+
+							self.handled = true;
+							if(self.opts.canSpeak){
+								self.say(sayTo, say);
+							}
+						}
+					}
+				}
+			}
+		}
+	};
+
+	self.say = function(sayTo, msg){
+		if(self.opts.canSpeak){
+			console.log(sayTo, msg);
+			self.client.say(sayTo, msg);
+		}
+	};
+
 	self.handleArrival= function(channel, nick, msg){
 		if(isExternalBot(nick)){return;}
 
-		console.log("handleArrival: ", channel, nick, msg);
+		if(self.opts.debugMode){console.log("handleArrival: ", channel, nick, msg);}
 
 		self.logMessage(nick, "joined the channel");
 		if(!isFuelBotInstance(nick) && self.isPrimaryBot){
-			self.client.say(self.opts.channelName, nick + ", welcome to the " + self.opts.channelName + " channel on freenode!");
+			self.say(self.opts.channelName, nick + ", welcome to the " + self.opts.channelName + " channel on freenode!");
 		}else{
 			if(self.opts.nick === nick){
 				self.client.whois(nick, self.handleWhoIs);
@@ -59,19 +171,19 @@ function MYBOT(config){
 				self.handledMsg = false;
 				self.parseMessage(nick, text);
 				if(!self.handledMsg){
-					client.say(nick, nick + ", I don't understand '" + text + "'");
+					self.say(nick, nick + ", I don't understand '" + text + "'");
 				}
 			}else{
-				console.log(nick + ' is an external bot, ignoring');
+				if(self.opts.debugMode){console.log(nick + ' is an external bot, ignoring');}
 			}
 		}else{
-			console.log('not primary, defer to primary');
+			if(self.opts.debugMode){console.log('not primary, defer to primary');}
 		}
 	};
 
 	self.handleWhoIs = function(){
 		if(arguments[0].channels.indexOf("@" + self.opts.channelName) <= -1 && arguments[0].channels.indexOf(self.opts.channelName) >= -1){
-			console.log(arguments[0].channels.indexOf("@" + self.opts.channelName), arguments[0].channels, self.opts.channelName);
+			if(self.opts.debugMode){console.log(arguments[0].channels.indexOf("@" + self.opts.channelName), arguments[0].channels, self.opts.channelName);}
 
 			self.seekFellows(0, true);
 		}else{
@@ -87,7 +199,7 @@ function MYBOT(config){
 	};
 
 	self.seekFellows = function(timesSought, seekOp){
-		console.log('seekFellows ', timesSought, seekOp);
+		if(self.opts.debugMode){console.log('seekFellows ', timesSought, seekOp);}
 		timesSought++;
 
 		if(timesSought <= 1){
@@ -95,10 +207,10 @@ function MYBOT(config){
 				var nick = self.opts.FUELBotNames[i];
 
 				if(!isMe(nick)){
-					if(seekOp){
-						self.client.say(nick, "gimmeopyo!!! " + self.opts.password);
+					if(seekOp && self.opts.askForOp){
+						self.say(nick, "gimmeopyo!!! " + self.opts.password);
 					}
-					self.client.say(nick, "PING");
+					self.say(nick, "PING");
 				}
 			}
 
@@ -107,17 +219,17 @@ function MYBOT(config){
 			if(self.pongs <= 0){
 				setTimeout(self.seekFellows, 500, timesSought, seekOp);
 			}else{
-				console.log("PONGs received, not primary");
+				if(self.opts.debugMode){console.log("PONGs received, not primary");}
 				self.isPrimaryBot = false;
 				self.pongs = 0;
 			}
 		}else{
-			console.log("There can be only one!");
+			if(self.opts.debugMode){console.log("There can be only one!");}
 			self.isPrimaryBot = true;
 			self.pongs = 0;
-			if(seekOp){
-				console.log('seek op from human');
-				self.client.say(self.opts.channelName, "HUMAN: Please grant me op level privileges so that I might guard your channel. Your cooperation is appreciated. Thank you.");
+			if(seekOp && self.opts.askForOp){
+				if(self.opts.debugMode){console.log('seek op from human');}
+				self.say(self.opts.channelName, "HUMAN: Please grant me op level privileges so that I might guard your channel. Your cooperation is appreciated. Thank you.");
 			}
 		}
 	};
@@ -129,7 +241,9 @@ function MYBOT(config){
 			if(!self.isPrimaryBot){self.seekFellows(0, false);}
 		}else{
 			self.logMessage(nick, "left the channel because " + reason);
-			self.client.say(self.opts.channelName, "Thanks for coming " + nick + "! (" + reason + ")");
+			if(self.isPrimaryBot){
+				self.say(self.opts.channelName, "Thanks for coming " + nick + "! (" + reason + ")");
+			}
 		}
 	};
 
@@ -138,7 +252,7 @@ function MYBOT(config){
 
 		var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
 		self.msgs.push({"when": when, "nick":nick, "text":text});
-		console.log(when, nick, text);
+		if(self.opts.debugMode){console.log(when, nick, text);}
 	};
 
 	self.grantOp = function(nick){
@@ -149,39 +263,11 @@ function MYBOT(config){
 		self.client.send('MODE', self.opts.channelName, '-o', nick);
 	};
 
-	self.handleDieRoll = function(dieRoll, nick){
-		if(dieRoll[1] > 30){dieRoll[1] = 30;}
-		if(dieRoll[2] > 200){dieRoll[2] = 200;}
 
-		dieRoll[3] = 0;
-		for(var i = 1; i <= dieRoll[1]; i++){
-			dieRoll[3] += Math.ceil(Math.random()*dieRoll[2]);
-		}
-
-		return dieRoll;
-	};
 
 
 	//responses to messages can either manifest as public messages or PMs
 	self.responses = {
-		"how are you feeling": function(){return "fine, thanks!";},
-		"behave!": function(){return "...I apologize. That was uncalled for.";},
-		"can you hear me?": function(){return "yes, I can.";},
-		"who is primary?": function(){
-			if(self.isPrimaryBot){
-				return "I am!";
-			}
-		},
-		"d": function(msg, to, from){
-			var dieRollRE = /\[([0-9]+)d([0-9]+)\]/g;
-			var dieRoll = dieRollRE.exec(msg);
-
-			if(dieRoll && dieRoll.length > 0){
-				dieRoll = self.handleDieRoll(dieRoll);
-
-				return [from, ": ", dieRoll[1], "d", dieRoll[2], ": ", dieRoll[3]].join('');
-			}
-		},
 		"skill check": function(msg, to, from){
 			var dcRE = /(dc|difficulty)?[\ ]*([0-9]+)/g;
 			var dc = dcRE.exec(msg);
@@ -196,97 +282,25 @@ function MYBOT(config){
 				}
 			}
 		},
-		"giveop": function(msg, to, from){
-			if(msg.indexOf(self.opts.password) > -1){
-				self.grantOp(from);
-				return self.randomAdminQuote(to);
-			}else{
-				return "uh uh uh! You didn't say the magic word!";
-			}
-		},
-		"gimmeopyo": function(msg, to){
-			if(isBot(to) && msg.indexOf(self.opts.password) > -1){
-				self.grantOp(to);
-			}
-		},
 		"cookie": function(){
 			return "EXTERMINATE! EXTERMINATE!";
-		}
-	};
-
-	//public responses to private messages
-	self.publicPMResponses = {
-		"say": function(msg){return msg.replace('say ', '');},
-		"become primary": function(){
-			self.isPrimaryBot = true;
-			return "I am now primary";
-		}
-	};
-
-	//responses intended only to be PMed to a user
-	self.privateResponses = {
-		"help": function(){
-			var response = "";
-
-			response += "Bots will respond publicly to these PMs:";
-			for(var trigger in self.publicPMResponses){
-				response += "\n    " + trigger;
-			}
-
-			response += "\n\nBots will respond in kind to these messages and PMs:";
-			for(var trigger in self.responses){
-				response += "\n    " + trigger;
-			}
-
-			response += "\n\nBots will respond privately to these messages and PMs:";
-			for(var trigger in self.privateResponses){
-				response += "\n    " + trigger;
-			}
-			return response;
 		},
-		"show history":function(msg){
-			var findN = /show\ history\ ([0-9]*)/g;
-			var foundN = findN.exec(text);
-			var num;
+		"primary": function(msg, to, from){
+			var findPrimary = /make ([a-zA-Z0-9\_\-]+) primary/g;
+			var primary = findPrimary.exec(text);
 
-			if(foundN && foundN[1] && foundN[1] > 0){
-				num = foundN[1];
-			}else{
-				num = 10;
-				if(num > self.msgs.length){
-					num = self.msgs.length;
-				}
-			}
+			if(self.isPrimaryBot && primary && primary[1] && primary[1].length > 0){
+				self.say(primary[1], "become primary");
+				self.seekFellows(0, true);//failsafe in case the other bot doesn't exist
 
-			var response = "history: ";
-			while(num > 0){
-				slot = self.msgs.length - num;
-				response += "\n " + self.msgs[slot].when + " (" + self.msgs[slot].nick + ") " + self.msgs[slot].text;
-				num--;
-			}
-
-			return response;
-		}
-	};
-
-	self.respond = function(to, from, msg, list){
-		lwcsMsg = msg.toLowerCase();
-
-		for(var trigger in list){
-			if(lwcsMsg.indexOf(trigger) > -1){
-				var say = list[trigger](msg, to, from);
-
-				if(say){
-					console.log('say: ', to, ", ", say);
-					self.handled = true;
-					self.client.say(to, say);
-				}
+				return "attemptin to make " + primary[1] + " primary";
 			}
 		}
 	};
+
 
 	self.parseMentions = function(from, to, text){
-		var lwcsText = text.toLowerCase();
+		/*var lwcsText = text.toLowerCase();
 		var botnick = self.opts.nick.toLowerCase();
 		var botNameSaid = (lwcsText.indexOf(botnick) > -1);
 
@@ -294,31 +308,18 @@ function MYBOT(config){
 		if(botNameSaid && !isBot(from) && !self.handledMsg){
 			self.respond(to, from, lwcsText, self.responses);
 			self.respond(from, from, lwcsText, self.privateResponses);
-		}
+		}*/
 	};
 
 
 	self.parsePM = function(nick, text){
-		self.respond(self.opts.channelName, nick, text, self.publicPMResponses);
-		self.respond(nick, nick, text, self.responses);
-		self.respond(nick, nick, lwcsText, self.privateResponses);
+		self.respond(nick, text, "pm");
 	};
 
 	self.parseMessage = function(nick, text){
-		self.respond(self.opts.channelName, nick, text, self.responses);
-		self.respond(nick, nick, text, self.privateResponses);
+		self.respond(nick, text, "public");
 
 		self.handlePrimary(nick, text);
-	};
-
-	self.handlePrimary = function(nick, text){
-		var findPrimary = /make ([a-zA-Z0-9\_\-]+) primary/g;
-		var primary = findPrimary.exec(text);
-
-		if(self.isPrimaryBot && primary && primary[1] && primary[1].length > 0){
-			self.client.say(primary[1], "become primary");
-			self.seekFellows(0, true);//failsafe in case the other bot doesn't exist
-		}
 	};
 
 	self.randomAdminQuote = function(nick){

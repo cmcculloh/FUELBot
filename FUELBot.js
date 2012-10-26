@@ -32,11 +32,6 @@ var irc = require('irc');
 var bot = require('./MYBOT');
 var MYBOT = new bot.MYBOT(config);
 
-
-//load in the bot's abilities
-	//loop through the abilities directory and require each file
-console.log(MYBOT);
-
 //Open an irc connection
 var client = new irc.Client('irc.freenode.net', MYBOT.opts.nick, {
 	channels: [MYBOT.opts.channelName + " " + MYBOT.opts.password],
@@ -58,12 +53,10 @@ client.addListener("join", function(channel, nick, msg){
 });
 
 client.addListener("part", function (channel, nick, reason, message) {
-	console.log(nick, 'part');
 	MYBOT.handleLeave(nick, reason, message);
 });
 
 client.addListener("quit", function (nick, reason, channels, message) {
-	console.log(nick, 'quit');
 	MYBOT.handleLeave(nick, reason, message);
 });
 
