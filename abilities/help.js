@@ -4,7 +4,7 @@ module.exports = function(self){
 	"actionName": "help",//name in the help list
 	"helpText": "Shows this help menu",
 	"simpleTrigger": "help",/*any of these words will flag this action for consideration*/
-	"trigger": /^help$/gi,/*the text must match this exactly (this is a regex) in order for doAction to be triggered*/
+	"trigger": /^help$/i,/*the text must match this exactly (this is a regex) in order for doAction to be triggered*/
 	"doAction": function(from, msg, matches, self){
 		var response = "";
 

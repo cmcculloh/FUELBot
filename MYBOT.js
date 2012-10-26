@@ -38,23 +38,10 @@ function MYBOT(config){
 		return (nick === self.opts.nick);
 	};
 
-	var objectInArray = function(obj, arr){
-		var i;
-		for (i = 0; i < arr.length; i++) {
-			if (arr[i] === obj) {
-				console.log('object in array');
-				return true;
-			}
-		}
-
-		console.log('object not in array');
-		return false;
-	};
-
 	var abilities = require('fs').readdirSync('./abilities');
 	while(abilities.length > 0){
 		var fileName = abilities.shift();
-		if(fileName === ".DS_Store"){continue;}
+		if(fileName.indexOf('.js') < 0){continue;}
 
 		ability = require('./abilities/' + fileName)(self);
 
@@ -65,26 +52,11 @@ function MYBOT(config){
 		ability.actionName = ability.actionName || ability.simpleTrigger;
 		ability.showInHelp = ability.showInHelp || false;
 		ability.helpText = ability.helpText || "";
-		ability.trigger = ability.trigger || new RegExp(ability.simpleTrigger);
+		ability.trigger = ability.trigger || new RegExp(ability.simpleTrigger, "i");
 		ability.responseMethods = ability.responseMethods || {"pm":"pm", "public":"public"};
 
 		self.actions.push(ability);
 	}
-
-	/* Build the potential actions list based on all registered actions */
-	self.buildActionList = function(){
-		for (var i=0; i < self.actions.length; i++){
-			var triggers = self.actions[i].simpleTrigger.split(" ");
-
-			while(triggers.length > 0){
-				var trigger = triggers.shift();
-
-				self.potentialActions[trigger] = self.potentialActions[trigger] || [];
-				self.potentialActions[trigger].push(self.actions[i]);
-			}
-		}
-	};
-	self.buildActionList();
 
 	var utils = require('fs').readdirSync('./utils');
 	while(utils.length > 0){
@@ -104,34 +76,24 @@ function MYBOT(config){
 
 	self.respond = function(from, msg, msgType){
 		var lwcsMsg = msg.toLowerCase();
-		var triedActions = [];
 
-		var msgParts = lwcsMsg.split(" ");
-		while(msgParts.length > 0){
-			var msgPart = msgParts.shift();
-			if(typeof self.potentialActions[msgPart] !== "object"){continue;}
-			for(var i = 0; i < self.potentialActions[msgPart].length; i++){
-				var action = self.potentialActions[msgPart][i];
-				if(objectInArray(action, triedActions) !== true){
-					triedActions.push(action);//log the fact that we tried this one
-					var matches = action.trigger.exec(msg);
+		for(var i=0, ii=self.actions.length; i<ii; i++){
+			if(lwcsMsg.indexOf(self.actions[i].simpleTrigger) >= 0){
+				var matches = self.actions[i].trigger.exec(msg);
 
-					if(matches){
-						var say = action.doAction(from, msg, matches, self);
+				if(matches){
+					var say = self.actions[i].doAction(from, msg, matches, self);
 
-						if(typeof say !== "undefined"){
-							var responseType = action.responseMethods[msgType] || "pm";
-							var sayTo = self.opts.channelName;
+					if(typeof say !== "undefined"){
+						var responseType = self.actions[i].responseMethods[msgType] || "pm";
+						var sayTo = self.opts.channelName;
 
-							if(responseType === "pm"){
-								sayTo = from;
-							}
-
-							self.handled = true;
-							if(self.opts.canSpeak){
-								self.say(sayTo, say);
-							}
+						if(responseType === "pm"){
+							sayTo = from;
 						}
+
+						self.say(sayTo, say);
+						self.handledMsg = true;
 					}
 				}
 			}
@@ -142,6 +104,8 @@ function MYBOT(config){
 		if(self.opts.canSpeak){
 			console.log(sayTo, msg);
 			self.client.say(sayTo, msg);
+		}else{
+			console.log("I can't speak!");
 		}
 	};
 
@@ -168,11 +132,11 @@ function MYBOT(config){
 		if(self.isPrimaryBot){
 			if(!isExternalBot(nick)){
 				//reset to false for next time...
-				self.handledMsg = false;
-				self.parseMessage(nick, text);
-				if(!self.handledMsg){
-					self.say(nick, nick + ", I don't understand '" + text + "'");
-				}
+				//self.handledMsg = false;
+				self.respond(nick, text, "public");
+				//if(!self.handledMsg){
+				//	self.say(nick, nick + ", I don't understand '" + text + "'");
+				//}
 			}else{
 				if(self.opts.debugMode){console.log(nick + ' is an external bot, ignoring');}
 			}
@@ -314,12 +278,6 @@ function MYBOT(config){
 
 	self.parsePM = function(nick, text){
 		self.respond(nick, text, "pm");
-	};
-
-	self.parseMessage = function(nick, text){
-		self.respond(nick, text, "public");
-
-		self.handlePrimary(nick, text);
 	};
 
 	self.randomAdminQuote = function(nick){

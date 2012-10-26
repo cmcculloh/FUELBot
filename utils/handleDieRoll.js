@@ -1,4 +1,4 @@
-module.exports = function(dieRoll, nick){
+module.exports = function(dieRoll){
 	if(dieRoll[1] > 30){dieRoll[1] = 30;}
 	if(dieRoll[2] > 200){dieRoll[2] = 200;}
 

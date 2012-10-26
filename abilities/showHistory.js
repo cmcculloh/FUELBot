@@ -4,7 +4,7 @@ module.exports = function(self){
 	"actionName": "show history [N]",//name in the help list
 	"helpText": "PMs you a history of previous conversations that the bot has listened to",
 	"simpleTrigger":"history",
-	"trigger": /show\ history\ ?([0-9]*)/gi,
+	"trigger": /show history ([0-9]*)/i,
 	"doAction":function(from, msg, matches, self){
 		var num;
 
