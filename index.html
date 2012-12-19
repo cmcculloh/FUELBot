@@ -25,7 +25,7 @@ iosocket.emit('showHistory', 'browser', function (data) {
                 if(event.which == 13) {
                     event.preventDefault();
                     iosocket.send($('#outgoingChatMessage').val());
-                    $('#incomingChatMessages').append('<br>' + $('#outgoingChatMessage').val());
+                    //$('#incomingChatMessages').append('<br>' + $('#outgoingChatMessage').val());
                     $('#outgoingChatMessage').val('');
                 }
             });
