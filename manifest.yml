@@ -1,0 +1,9 @@
+--- 
+applications: 
+- runtime: node
+  url: fuelbot.${target-base}
+  memory: 64M
+  instances: 1
+  framework: node
+  path: .
+  name: FUELBot

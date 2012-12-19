@@ -21,6 +21,7 @@ function MYBOT(config){
 	self.pongs = 0;
 	self.potentialActions = [];
 	self.actions = [];
+	self.targetedActions = {};
 
 	var isExternalBot = function(nick){
 		return (self.opts.EXTERNALBotNames.indexOf(nick) > -1);
@@ -56,6 +57,7 @@ function MYBOT(config){
 		ability.responseMethods = ability.responseMethods || {"pm":"pm", "public":"public"};
 
 		self.actions.push(ability);
+		self.targetedActions[ability.actionName]=ability;
 	}
 
 	var utils = require('fs').readdirSync('./utils');
