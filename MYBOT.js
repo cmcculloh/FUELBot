@@ -74,7 +74,7 @@ function MYBOT(config){
 		}
 	}
 
-	console.log(self);
+	//console.log(self);
 
 	self.respond = function(from, msg, msgType){
 		var lwcsMsg = msg.toLowerCase();

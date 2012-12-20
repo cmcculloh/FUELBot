@@ -2,16 +2,31 @@
 <head>
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+Incoming Chat: <ul id="incomingChatMessages"></ul>
+
+Username: <input type="text" id="username"><button id="connect" value="connect">connect</button><br>
+Message: <input type="text" id="outgoingChatMessage">
+
     <script>
-        $(function(){
-            var iosocket = io.connect();
+        var iosocket;
+        $('#connect').bind('click', function(){
+            //console.log('hete');
+            //iosocket = io.connect('http://fuelbot.cloudfoundry.com/');
+            iosocket = io.connect('http://localhost:3000/', '{"test":"jkahlhjkadflkjfadsjklfaddfljkhjlkdfahjlkfdhldfashlasdfhldasfhjl"}');
 
             iosocket.on('connect', function () {
+                console.log('test');
                 $('#incomingChatMessages').append($('<p>Connected</p>'));
 
-iosocket.emit('showHistory', 'browser', function (data) {
-      $('#incomingChatMessages').append(data);
-    });
+                iosocket.emit('createClient', $('#username').val(), function(data){
+                    $('#incomingChatMessages').append(data);
+                });
+
+                iosocket.emit('showHistory', 'browser', function (data) {
+                  $('#incomingChatMessages').append(data);
+                });
 
                 iosocket.on('message', function(message) {
                     $('#incomingChatMessages').append('<br>' + message);
@@ -29,13 +44,10 @@ iosocket.emit('showHistory', 'browser', function (data) {
                     $('#outgoingChatMessage').val('');
                 }
             });
+
+            $("#connect").hide();
         });
+
     </script>
-</head>
-<body>
-Incoming Chat: <ul id="incomingChatMessages"></ul>
-
-
-<input type="text" id="outgoingChatMessage">
 </body>
 </html>

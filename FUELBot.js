@@ -31,7 +31,60 @@ console.log('args:', args);
 var config = require('./configs/' + args.configFile).config;
 var irc = require('irc');
 var bot = require('./MYBOT');
-var MYBOT = new bot.MYBOT(config);
+
+var FUELBot = new bot.MYBOT(config);
+//Open an irc connection
+FUELBot.client = new irc.Client('irc.freenode.net', FUELBot.opts.nick, {
+	channels: [FUELBot.opts.channelName + " " + FUELBot.opts.password],
+	debug: false,
+	password: FUELBot.password,
+	username: FUELBot.nick,
+	realName: "FUELBot nodeJS IRC client"
+});
+
+//Handle on connect event
+FUELBot.client.addListener("connect", function () {
+	FUELBot.handleArrival(FUELBot.opts.channelName, FUELBot.opts.nick, "connect");
+});
+
+FUELBot.client.addListener("join", function(channel, nick, msg){
+	FUELBot.handleArrival(channel, nick, msg);
+});
+
+FUELBot.client.addListener("part", function (channel, nick, reason, message) {
+	FUELBot.handleLeave(nick, reason, message);
+});
+
+FUELBot.client.addListener("quit", function (nick, reason, channels, message) {
+	FUELBot.handleLeave(nick, reason, message);
+});
+
+//Handle private messages
+FUELBot.client.addListener('pm', function (from, message) {
+		console.log(from + ' => ME: ' + message);
+		if(message === "PING"){
+			console.log('received PING from ', from, ' responding...');
+			FUELBot.client.say(from, "PONG");
+		}else if(message === "PONG"){
+			console.log('received PONG from ', from, ' logging...');
+			FUELBot.pongs++;
+		}
+
+
+		//reset to false for next time...
+		FUELBot.handledMsg = false;
+		FUELBot.parseMentions(from, from, message);
+		FUELBot.parsePM(from, message);
+		FUELBot.parseMessage(from, message);
+		if(!handledMsg){
+			FUELBot.client.say(from, from + ", I don't understand '" + text + "'");
+		}
+});//End of pm listener
+
+//Handle on message in target channel event
+FUELBot.client.addListener("message" + FUELBot.opts.channelName, function (nick,text) {
+	FUELBot.handleMessage(nick, text);
+});
 
 var fs = require('fs')
 		, http = require('http')
@@ -41,78 +94,98 @@ var server = http.createServer(function(req, res) {
 		res.writeHead(200, { 'Content-type': 'text/html'});
 		res.end(fs.readFileSync(__dirname + '/index.html'));
 }).listen(3000, function() {
-		console.log('Listening at: http://localhost:8080');
+		console.log("Nodebot listening");
 });
 
 socketio.listen(server).on('connection', function (socket) {
-	//Open an irc connection
-	var client = new irc.Client('irc.freenode.net', MYBOT.opts.nick, {
+	config.nick=socket.id;
+	config.FUELBotNames=[socket.id];
+	var MYBOT = new bot.MYBOT(config);
+	MYBOT.client = new irc.Client('irc.freenode.net', config.nick, {
 		channels: [MYBOT.opts.channelName + " " + MYBOT.opts.password],
 		debug: false,
 		password: MYBOT.password,
-		username: MYBOT.nick,
+		username: config.nick,
 		realName: "FUELBot nodeJS IRC client"
 	});
-
-	MYBOT.client = client;
-
-	//Handle on connect event
-	client.addListener("connect", function () {
-		MYBOT.handleArrival(MYBOT.opts.channelName, MYBOT.opts.nick, "connect");
-	});
-
-	client.addListener("join", function(channel, nick, msg){
-		MYBOT.handleArrival(channel, nick, msg);
-	});
-
-	client.addListener("part", function (channel, nick, reason, message) {
-		MYBOT.handleLeave(nick, reason, message);
-	});
-
-	client.addListener("quit", function (nick, reason, channels, message) {
-		MYBOT.handleLeave(nick, reason, message);
-	});
-
-	//Handle private messages
-	client.addListener('pm', function (from, message) {
-			console.log(from + ' => ME: ' + message);
-			if(message === "PING"){
-				console.log('received PING from ', from, ' responding...');
-				client.say(from, "PONG");
-			}else if(message === "PONG"){
-				console.log('received PONG from ', from, ' logging...');
-				MYBOT.pongs++;
-			}
-
-
-			//reset to false for next time...
-			MYBOT.handledMsg = false;
-			MYBOT.parseMentions(from, from, message);
-			MYBOT.parsePM(from, message);
-			MYBOT.parseMessage(from, message);
-			if(!handledMsg){
-				client.say(from, from + ", I don't understand '" + text + "'");
-			}
-	});//End of pm listener
-
 	//Handle on message in target channel event
-	client.addListener("message" + MYBOT.opts.channelName, function (nick,text) {
-		MYBOT.handleMessage(nick, text);
-
+	MYBOT.client.addListener("message" + MYBOT.opts.channelName, function (nick,text) {
+		//MYBOT.handleMessage(nick, text);
+		console.log('got message from irc:', nick, text);
 		var now = new Date();
 
 		var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
-		socket.broadcast.emit('message', when + ' (' + nick + ') ' + text);
-	});
-
-	socket.on('showHistory', function (name, fn) {
-		fn(MYBOT.targetedActions['show history [N]'].doAction("browser", "show history 10", [10,10], MYBOT));
+		socket.emit('message', socket.id + ": " + when + ' (' + nick + ') ' + text);
+		console.log('got to here');
 	});
 	socket.on('message', function (msg) {
-			console.log('Message Received: ', msg);
-			socket.broadcast.emit('message', msg);
-			client.say('#fuel_platform_team', msg);
+		console.log('Message Received: ', msg);
+		MYBOT.client.say('#fuel_platform_team', msg);
+		socket.emit('message', socket.id + ": " + msg);
 	});
+});
+/*
+MYBOTS = [];
+
+socketio.listen(server).on('connection', function (socket) {
+	console.log('on connection');
+	var MYBOT = new bot.MYBOT(config);
+	MYBOT.socket = socket;
+
+	MYBOT.socket.on('createClient', function (name, fn) {
+		MYBOT.opts.nick = name;
+		MYBOT.opts.FUELBotNames = [name];
+
+		//Open an irc connection
+		MYBOT.client = new irc.Client('irc.freenode.net', name, {
+			channels: [MYBOT.opts.channelName + " " + MYBOT.opts.password],
+			debug: false,
+			password: MYBOT.password,
+			username: name,
+			realName: "FUELBot nodeJS IRC client"
+		});
+
+		//Handle private messages
+		MYBOT.client.addListener('pm', function (from, message) {
+				console.log(from + ' => ME: ' + message);
+				if(message === "PING"){
+					console.log('received PING from ', from, ' responding...');
+					MYBOT.client.say(from, "PONG");
+				}else if(message === "PONG"){
+					console.log('received PONG from ', from, ' logging...');
+					MYBOT.pongs++;
+				}
+
+
+			var now = new Date();
+
+			var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
+			MYBOT.socket.broadcast.emit('message', 'PM:' + when + ' (' + nick + ') ' + text);
+		});//End of pm listener
+
+		//Handle on message in target channel event
+		MYBOT.client.addListener("message" + MYBOT.opts.channelName, function (nick,text) {
+			//MYBOT.handleMessage(nick, text);
+			console.log('got message from irc:', nick, text);
+			var now = new Date();
+
+			var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
+			MYBOT.socket.broadcast.emit('message', when + ' (' + nick + ') ' + text);
+			console.log('got to here');
+		});
+		MYBOTS.push(MYBOT);
+	});
+	MYBOT.socket.on('showHistory', function (name, fn) {
+		console.log('show history');
+		fn(MYBOT.targetedActions['show history [N]'].doAction("browser", "show history 10", [10,10], MYBOT));
+	});
+	MYBOT.socket.on('message', function (msg) {
+			console.log('Message Received: ', msg);
+			//socket.broadcast.emit('message', 'from socket.on message:'+ msg);
+			MYBOT.client.say('#fuel_platform_team', msg);
+			console.log('done with message');
+	});
+	socket = null;
 });
 
 /*
