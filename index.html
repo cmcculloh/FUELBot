@@ -1,5 +1,10 @@
 <html>
 <head>
+    <style>
+        .light{
+            color: #888;
+        }
+    </style>
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
@@ -13,23 +18,31 @@ Message: <input type="text" id="outgoingChatMessage">
         var iosocket;
         $('#connect').bind('click', function(){
             //console.log('hete');
-            //iosocket = io.connect('http://fuelbot.cloudfoundry.com/');
-            iosocket = io.connect('http://localhost:3000/', '{"test":"jkahlhjkadflkjfadsjklfaddfljkhjlkdfahjlkfdhldfashlasdfhldasfhjl"}');
+            iosocket = io.connect('http://fuelbot.cloudfoundry.com/');
+            //iosocket = io.connect('http://localhost:3000/');
 
             iosocket.on('connect', function () {
-                console.log('test');
-                $('#incomingChatMessages').append($('<p>Connected</p>'));
+                $('#incomingChatMessages').append($('<p>Connecting...</p><img src="/ajax-loader.gif" id="loader"/>'));
 
                 iosocket.emit('createClient', $('#username').val(), function(data){
+                    //immediately give the joiner some context by showing prehistory
+                    iosocket.emit('showHistory', 'browser', function (data) {
+                        $('#loader').hide();
+                        $('#incomingChatMessages').append($('<p>Connected.</p>'));
+                        $('#incomingChatMessages').append(data);
+                    });
                     $('#incomingChatMessages').append(data);
                 });
 
-                iosocket.emit('showHistory', 'browser', function (data) {
-                  $('#incomingChatMessages').append(data);
-                });
-
                 iosocket.on('message', function(message) {
-                    $('#incomingChatMessages').append('<br>' + message);
+                    var highlightStart = "";
+                    var highlightEnd = "";
+                    if(message.indexOf($('#username').val()) > -1){
+                        highlightStart = "<b>";
+                        highlightEnd = "</b>";
+                    }
+                    $('#incomingChatMessages').append('<br>' + highlightStart + message + highlightEnd);
+                    document.getElementById('outgoingChatMessage').scrollIntoView(true);
                 });
                 iosocket.on('disconnect', function() {
                     $('#incomingChatMessages').append('<p>Disconnected</p>');

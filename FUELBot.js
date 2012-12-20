@@ -96,7 +96,7 @@ var server = http.createServer(function(req, res) {
 }).listen(3000, function() {
 		console.log("Nodebot listening");
 });
-
+/*
 socketio.listen(server).on('connection', function (socket) {
 	config.nick=socket.id;
 	config.FUELBotNames=[socket.id];
@@ -123,16 +123,11 @@ socketio.listen(server).on('connection', function (socket) {
 		MYBOT.client.say('#fuel_platform_team', msg);
 		socket.emit('message', socket.id + ": " + msg);
 	});
-});
-/*
-MYBOTS = [];
-
+});*/
 socketio.listen(server).on('connection', function (socket) {
-	console.log('on connection');
 	var MYBOT = new bot.MYBOT(config);
-	MYBOT.socket = socket;
 
-	MYBOT.socket.on('createClient', function (name, fn) {
+	socket.on('createClient', function (name, fn) {
 		MYBOT.opts.nick = name;
 		MYBOT.opts.FUELBotNames = [name];
 
@@ -160,7 +155,7 @@ socketio.listen(server).on('connection', function (socket) {
 			var now = new Date();
 
 			var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
-			MYBOT.socket.broadcast.emit('message', 'PM:' + when + ' (' + nick + ') ' + text);
+			socket.emit('message', '<b><i>PM:' + when + ' (' + from + ') ' + message + '</i></b>');
 		});//End of pm listener
 
 		//Handle on message in target channel event
@@ -170,22 +165,24 @@ socketio.listen(server).on('connection', function (socket) {
 			var now = new Date();
 
 			var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
-			MYBOT.socket.broadcast.emit('message', when + ' (' + nick + ') ' + text);
+			socket.emit('message', '<span class="light">' + when + ' (' + nick + ')</span> ' + text);
 			console.log('got to here');
 		});
-		MYBOTS.push(MYBOT);
 	});
-	MYBOT.socket.on('showHistory', function (name, fn) {
+	socket.on('showHistory', function (name, fn) {
 		console.log('show history');
 		fn(MYBOT.targetedActions['show history [N]'].doAction("browser", "show history 10", [10,10], MYBOT));
 	});
-	MYBOT.socket.on('message', function (msg) {
+	socket.on('message', function (msg) {
 			console.log('Message Received: ', msg);
 			//socket.broadcast.emit('message', 'from socket.on message:'+ msg);
 			MYBOT.client.say('#fuel_platform_team', msg);
+			var now = new Date();
+
+			var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
+			socket.emit('message', '<span class="light">' + when + ' (' + MYBOT.opts.nick + ')</span> ' + msg);
 			console.log('done with message');
 	});
-	socket = null;
 });
 
 /*
