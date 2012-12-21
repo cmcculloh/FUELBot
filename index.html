@@ -4,6 +4,12 @@
         .light{
             color: #888;
         }
+        .other{
+            color: #000;
+        }
+        .me{
+            background-color: #ddd;
+        }
     </style>
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -34,11 +40,11 @@ Message: <input type="text" id="outgoingChatMessage">
                 });
 
                 iosocket.on('message', function(message) {
-                    var highlightStart = "";
-                    var highlightEnd = "";
+                    var highlightStart = '<span class="other">';
+                    var highlightEnd = '</span>';
                     if(message.indexOf($('#username').val()) > -1){
-                        highlightStart = "<b>";
-                        highlightEnd = "</b>";
+                        highlightStart = '<span class="me">';
+                        highlightEnd = '</span>';
                     }
                     $('#incomingChatMessages').append('<br>' + highlightStart + message + highlightEnd);
                     document.getElementById('outgoingChatMessage').scrollIntoView(true);
