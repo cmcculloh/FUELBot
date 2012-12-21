@@ -9,16 +9,34 @@
         }
         .me{
             background-color: #ddd;
+            font-weight: bold;
+        }
+        .fromme{
+            background-color: #FFF;
+            color: #668;
+            font-weight: normal;
+        }
+        #outgoingChatMessageWrapper{
+            display:none;
+        }
+        .pm{
+            color: #800;
+            background-color: #FEE;
+        }
+        li{
+            list-style: none;
         }
     </style>
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-Incoming Chat: <ul id="incomingChatMessages"></ul>
+<ul id="incomingChatMessages"></ul>
 
-Username: <input type="text" id="username"><button id="connect" value="connect">connect</button><br>
-Message: <input type="text" id="outgoingChatMessage">
+<p>Username: <input type="text" id="username" maxlength="16"><br>
+<span id="passwordWrapper">Password: <input type="password" id="password"><br></span>
+<button id="connect" value="connect">connect</button></p>
+<p id="outgoingChatMessageWrapper">Message: <input type="text" id="outgoingChatMessage"></p>
 
     <script>
         var iosocket;
@@ -29,7 +47,7 @@ Message: <input type="text" id="outgoingChatMessage">
 
             iosocket.on('connect', function () {
                 $('#incomingChatMessages').append($('<p>Connected!<br>Logging into freenode...</p>'));
-                iosocket.emit('createClient', $('#username').val(), function(data){
+                iosocket.emit('createClient', [$('#username').val(), $('#password').val()], function(data){
                     //immediately give the joiner some context by showing prehistory
                     iosocket.emit('showHistory', 'browser', function (data) {
                         $('#loader').hide();
@@ -46,7 +64,7 @@ Message: <input type="text" id="outgoingChatMessage">
                         highlightStart = '<span class="me">';
                         highlightEnd = '</span>';
                     }
-                    $('#incomingChatMessages').append('<br>' + highlightStart + message + highlightEnd);
+                    $('#incomingChatMessages').append('<li>' + highlightStart + message + highlightEnd + '</li>');
                     document.getElementById('outgoingChatMessage').scrollIntoView(true);
                 });
                 iosocket.on('disconnect', function() {
@@ -64,6 +82,9 @@ Message: <input type="text" id="outgoingChatMessage">
             });
 
             $("#connect").hide();
+            $("#passwordWrapper").hide();
+            $("#username").prop('readonly', 'readonly');
+            $("#outgoingChatMessageWrapper").show();
         });
 
     </script>

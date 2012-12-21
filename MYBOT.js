@@ -229,7 +229,11 @@ function MYBOT(config){
 		self.client.send('MODE', self.opts.channelName, '-o', nick);
 	};
 
+	self.getTime = function(){
+		var now = new Date();
 
+		return now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes() + ":" + now.getSeconds();
+	};
 
 
 	//responses to messages can either manifest as public messages or PMs

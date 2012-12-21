@@ -127,61 +127,54 @@ socketio.listen(server).on('connection', function (socket) {
 socketio.listen(server).on('connection', function (socket) {
 	var MYBOT = new bot.MYBOT(config);
 
-	socket.on('createClient', function (name, fn) {
-		MYBOT.opts.nick = name;
-		MYBOT.opts.FUELBotNames = [name];
+	socket.on('createClient', function (opts, fn) {
+		MYBOT.opts.nick = opts[0];
+		MYBOT.opts.FUELBotNames = [opts[0]];
 
 		//Open an irc connection
-		MYBOT.client = new irc.Client('irc.freenode.net', name, {
-			channels: [MYBOT.opts.channelName + " " + MYBOT.opts.password],
+		MYBOT.client = new irc.Client('irc.freenode.net', opts[0], {
+			channels: [MYBOT.opts.channelName + " " + opts[1]],
 			debug: false,
-			password: MYBOT.password,
-			username: name,
+			password: opts[1],
+			username: opts[0],
 			realName: "FUELBot nodeJS IRC client"
 		});
 
 		//Handle private messages
 		MYBOT.client.addListener('pm', function (from, message) {
-				console.log(from + ' => ME: ' + message);
-				if(message === "PING"){
-					console.log('received PING from ', from, ' responding...');
-					MYBOT.client.say(from, "PONG");
-				}else if(message === "PONG"){
-					console.log('received PONG from ', from, ' logging...');
-					MYBOT.pongs++;
-				}
-
-
-			var now = new Date();
-
-			var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
-			socket.emit('message', '<b><i>PM:' + when + ' (' + from + ') ' + message + '</i></b>');
+			console.log('PM', from, message);
+			var when = MYBOT.getTime();
+			socket.emit('message', '<span class="pm">' + when + ' (' + from + ') PM: ' + message + '</span>');
 		});//End of pm listener
 
 		//Handle on message in target channel event
 		MYBOT.client.addListener("message" + MYBOT.opts.channelName, function (nick,text) {
-			//MYBOT.handleMessage(nick, text);
-			console.log('got message from irc:', nick, text);
-			var now = new Date();
-
-			var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
+			console.log('message', nick, text);
+			var when = MYBOT.getTime();
 			socket.emit('message', '<span class="light">' + when + ' (' + nick + ')</span> ' + text);
-			console.log('got to here');
+		});
+
+		MYBOT.client.addListener("join", function(channel, nick, msg){
+			console.log('join', channel, nick, msg);
+			var when = MYBOT.getTime();
+			socket.emit('message', '<span class="statusUpdate"><span class="light">' + when + '</span> ' + nick + ' joined ' + channel + '</span>');
+		});
+
+		MYBOT.client.addListener("part", function (channel, nick, reason, message) {
+			console.log('part', channel, nick, reason, message);
+			var when = MYBOT.getTime();
+			socket.emit('message', '<span class="statusUpdate"><span class="light">' + when + ' (' + nick + ')</span> ' + message + " - " + reason + "</span>");
 		});
 	});
 	socket.on('showHistory', function (name, fn) {
 		console.log('show history');
-		fn(MYBOT.targetedActions['show history [N]'].doAction("browser", "show history 10", [10,10], MYBOT));
+		fn(FUELBot.targetedActions['show history [N]'].doAction("browser", "show history 10", [10,10], MYBOT));
 	});
 	socket.on('message', function (msg) {
-			console.log('Message Received: ', msg);
-			//socket.broadcast.emit('message', 'from socket.on message:'+ msg);
-			MYBOT.client.say('#fuel_platform_team', msg);
-			var now = new Date();
-
-			var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
-			socket.emit('message', '<span class="light">' + when + ' (' + MYBOT.opts.nick + ')</span> ' + msg);
-			console.log('done with message');
+		console.log('message from me', msg);
+		MYBOT.client.say('#fuel_platform_team', msg);
+		var when = MYBOT.getTime();
+		socket.emit('message', '<span class="fromme"><span class="light">' + when + ' (' + MYBOT.opts.nick + ')</span> ' + msg + '</span>');
 	});
 });
 
