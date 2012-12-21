@@ -17,13 +17,12 @@ Message: <input type="text" id="outgoingChatMessage">
     <script>
         var iosocket;
         $('#connect').bind('click', function(){
-            //console.log('hete');
+            $('#incomingChatMessages').append($('<p>Connecting...</p>'));
             iosocket = io.connect('http://fuelbot.cloudfoundry.com/');
             //iosocket = io.connect('http://localhost:3000/');
 
             iosocket.on('connect', function () {
-                $('#incomingChatMessages').append($('<p>Connecting...</p><img src="/ajax-loader.gif" id="loader"/>'));
-
+                $('#incomingChatMessages').append($('<p>Connected!<br>Logging into freenode...</p>'));
                 iosocket.emit('createClient', $('#username').val(), function(data){
                     //immediately give the joiner some context by showing prehistory
                     iosocket.emit('showHistory', 'browser', function (data) {
