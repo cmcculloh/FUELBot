@@ -96,36 +96,10 @@ var server = http.createServer(function(req, res) {
 }).listen(3000, function() {
 		console.log("Nodebot listening");
 });
-/*
-socketio.listen(server).on('connection', function (socket) {
-	config.nick=socket.id;
-	config.FUELBotNames=[socket.id];
-	var MYBOT = new bot.MYBOT(config);
-	MYBOT.client = new irc.Client('irc.freenode.net', config.nick, {
-		channels: [MYBOT.opts.channelName + " " + MYBOT.opts.password],
-		debug: false,
-		password: MYBOT.password,
-		username: config.nick,
-		realName: "FUELBot nodeJS IRC client"
-	});
-	//Handle on message in target channel event
-	MYBOT.client.addListener("message" + MYBOT.opts.channelName, function (nick,text) {
-		//MYBOT.handleMessage(nick, text);
-		console.log('got message from irc:', nick, text);
-		var now = new Date();
 
-		var when = now.getMonth() + "/" + now.getDate() + "/" + now.getFullYear() + " " + now.getHours() + ":" + now.getMinutes();
-		socket.emit('message', socket.id + ": " + when + ' (' + nick + ') ' + text);
-		console.log('got to here');
-	});
-	socket.on('message', function (msg) {
-		console.log('Message Received: ', msg);
-		MYBOT.client.say('#fuel_platform_team', msg);
-		socket.emit('message', socket.id + ": " + msg);
-	});
-});*/
 socketio.listen(server).on('connection', function (socket) {
 	var MYBOT = new bot.MYBOT(config);
+
 
 	socket.on('createClient', function (opts, fn) {
 		MYBOT.opts.nick = opts[0];
@@ -147,9 +121,21 @@ socketio.listen(server).on('connection', function (socket) {
 			socket.emit('message', '<span class="pm">' + when + ' (' + from + ') PM: ' + message + '</span>');
 		});//End of pm listener
 
+		//Allow to be kicked
+		MYBOT.client.addListener("kick" + MYBOT.opts.channelName, function(nick, by, reason, message){
+			if(nick === MYBOT.opts.nick){
+				socket.emit('message', 'You have been kicket by ' + by);
+				socket.disconnect();
+				MYBOT.client.disconnect();
+				delete socket;
+				delete MYBOT;
+			}
+		});
+
 		//Handle on message in target channel event
 		MYBOT.client.addListener("message" + MYBOT.opts.channelName, function (nick,text) {
 			console.log('message', nick, text);
+
 			var when = MYBOT.getTime();
 			socket.emit('message', '<span class="light">' + when + ' (' + nick + ')</span> ' + text);
 		});
