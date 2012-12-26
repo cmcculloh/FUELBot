@@ -1,4 +1,5 @@
-<html>
+<!DOCTYPE html>
+<html lang="en" class="fuelux">
 <head>
     <style>
         .light{
@@ -26,67 +27,86 @@
         li{
             list-style: none;
         }
+        #incomingChatMessagesWrapper{
+            height: 500px;
+            overflow: auto;
+        }
     </style>
-    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
+    <link href="http://fuelcdn.com/fuelux-imh/2.1/css/fuelux.css" rel="stylesheet" />
+    <link href="http://fuelcdn.com/fuelux-imh/2.1/css/fuelux-responsive.css" rel="stylesheet" />
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js" type="text/javascript"></script>
+    <script src="http://fuelcdn.com/fuelux-imh/2.1/loader.min.js" type="text/javascript"></script>
 </head>
 <body>
-<ul id="incomingChatMessages"></ul>
+<div class="row">
+    <div class="span10" id="incomingChatMessagesWrapper"><ul id="incomingChatMessages"></ul><div id='makeitscroll'>&nbsp;</div></div>
+    <div class="span2"><ul id="names"></ul></div>
+</div>
 
 <p>Username: <input type="text" id="username" maxlength="16"><br>
 <span id="passwordWrapper">Password: <input type="password" id="password"><br></span>
 <button id="connect" value="connect">connect</button></p>
 <p id="outgoingChatMessageWrapper">Message: <input type="text" id="outgoingChatMessage"></p>
 
-    <script>
-        var iosocket;
-        $('#connect').bind('click', function(){
-            $('#incomingChatMessages').append($('<p>Connecting...</p>'));
-            iosocket = io.connect('http://fuelbot.cloudfoundry.com/');
-            //iosocket = io.connect('http://localhost:3000/');
+<script>
+    var iosocket;
+    $('#connect').bind('click', function(){
+        $('#incomingChatMessages').append($('<p>Connecting...</p>'));
+        //iosocket = io.connect('http://fuelbot.cloudfoundry.com/');
+        iosocket = io.connect('http://localhost:3000/');
 
-            iosocket.on('connect', function () {
-                $('#incomingChatMessages').append($('<p>Connected!<br>Logging into freenode...</p>'));
-                iosocket.emit('createClient', [$('#username').val(), $('#password').val()], function(data){
-                    //immediately give the joiner some context by showing prehistory
-                    iosocket.emit('showHistory', 'browser', function (data) {
-                        $('#loader').hide();
-                        $('#incomingChatMessages').append($('<p>Connected.</p>'));
-                        $('#incomingChatMessages').append(data);
-                    });
-                    $('#incomingChatMessages').append(data);
-                });
+        iosocket.on('connect', function () {
+            $('#incomingChatMessages').append($('<p>Connected!<br>Logging into freenode...</p>'));
+            iosocket.emit('createClient', [$('#username').val(), $('#password').val()], function(data){
+                $('#incomingChatMessages').append(data);
+            });
 
-                iosocket.on('message', function(message) {
-                    var highlightStart = '<span class="other">';
-                    var highlightEnd = '</span>';
-                    if(message.indexOf($('#username').val()) > -1){
-                        highlightStart = '<span class="me">';
-                        highlightEnd = '</span>';
-                    }
-                    $('#incomingChatMessages').append('<li>' + highlightStart + message + highlightEnd + '</li>');
-                    document.getElementById('outgoingChatMessage').scrollIntoView(true);
-                });
-                iosocket.on('disconnect', function() {
-                    $('#incomingChatMessages').append('<p>Disconnected</p>');
+            iosocket.emit('getNames', function(){});
+
+            iosocket.on('refreshNames', function(names){
+                console.log('names', names);
+                $('#names').html('');
+                $.each(names, function(key, val){
+                    $('#names').append(['<li>', val, key, '</li>'].join(''));
                 });
             });
 
-            $('#outgoingChatMessage').keypress(function(event) {
-                if(event.which == 13) {
-                    event.preventDefault();
-                    iosocket.send($('#outgoingChatMessage').val());
-                    //$('#incomingChatMessages').append('<br>' + $('#outgoingChatMessage').val());
-                    $('#outgoingChatMessage').val('');
+            iosocket.on('message', function(message) {
+                var highlightStart = '<span class="other">';
+                var highlightEnd = '</span>';
+                if(message.indexOf($('#username').val()) > -1){
+                    highlightStart = '<span class="me">';
+                    highlightEnd = '</span>';
                 }
+                $('#incomingChatMessages').append('<li>' + highlightStart + message + highlightEnd + '</li>');
+                document.getElementById('makeitscroll').scrollIntoView(true);
             });
-
-            $("#connect").hide();
-            $("#passwordWrapper").hide();
-            $("#username").prop('readonly', 'readonly');
-            $("#outgoingChatMessageWrapper").show();
+            iosocket.on('disconnect', function() {
+                iosocket.disconnect();
+                iosocket = null;
+                io = null;
+                delete iosocket;
+                delete io;
+                $('#incomingChatMessages').append('<p>Disconnected by server...</p>');
+            });
         });
 
-    </script>
+        $('#outgoingChatMessage').keypress(function(event) {
+            if(event.which == 13) {
+                event.preventDefault();
+                iosocket.send($('#outgoingChatMessage').val());
+                //$('#incomingChatMessages').append('<br>' + $('#outgoingChatMessage').val());
+                $('#outgoingChatMessage').val('');
+            }
+        });
+
+        $("#connect").hide();
+        $("#passwordWrapper").hide();
+        $("#username").prop('readonly', 'readonly');
+        $("#outgoingChatMessageWrapper").show();
+    });
+
+</script>
 </body>
 </html>

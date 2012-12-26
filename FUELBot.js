@@ -125,6 +125,7 @@ socketio.listen(server).on('connection', function (socket) {
 		MYBOT.client.addListener("kick" + MYBOT.opts.channelName, function(nick, by, reason, message){
 			if(nick === MYBOT.opts.nick){
 				socket.emit('message', 'You have been kicket by ' + by);
+				socket.emit('disconnect');
 				socket.disconnect();
 				MYBOT.client.disconnect();
 				delete socket;
@@ -142,19 +143,35 @@ socketio.listen(server).on('connection', function (socket) {
 
 		MYBOT.client.addListener("join", function(channel, nick, msg){
 			console.log('join', channel, nick, msg);
+			MYBOT.client.send('NAMES', MYBOT.opts.channelName);
 			var when = MYBOT.getTime();
 			socket.emit('message', '<span class="statusUpdate"><span class="light">' + when + '</span> ' + nick + ' joined ' + channel + '</span>');
+
+			if(nick === MYBOT.opts.nick){
+				console.log('trying to show history');
+				MYBOT.client.say(FUELBot.opts.nick, "show history 10");
+			}
 		});
 
 		MYBOT.client.addListener("part", function (channel, nick, reason, message) {
 			console.log('part', channel, nick, reason, message);
+			MYBOT.client.send('NAMES', MYBOT.opts.channelName);
 			var when = MYBOT.getTime();
 			socket.emit('message', '<span class="statusUpdate"><span class="light">' + when + ' (' + nick + ')</span> ' + message + " - " + reason + "</span>");
 		});
+
+		MYBOT.client.addListener('names', function(channel, nicks){
+			console.log('getNmaes', nicks);
+			socket.emit('refreshNames', nicks);
+		});
+
+		fn();
 	});
-	socket.on('showHistory', function (name, fn) {
-		console.log('show history');
-		fn(FUELBot.targetedActions['show history [N]'].doAction("browser", "show history 10", [10,10], MYBOT));
+	socket.on('getNames', function(data, fn){
+		console.log('getNames');
+		//MYBOT.client.say('#fuel_platform_team', '/names #fuel_platform_team');
+		MYBOT.client.send('NAMES', MYBOT.opts.channelName);
+		console.log('sent NAMES request...');
 	});
 	socket.on('message', function (msg) {
 		console.log('message from me', msg);
