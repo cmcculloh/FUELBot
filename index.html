@@ -53,8 +53,8 @@
     var iosocket;
     $('#connect').bind('click', function(){
         $('#incomingChatMessages').append($('<p>Connecting...</p>'));
-        //iosocket = io.connect('http://fuelbot.cloudfoundry.com/');
-        iosocket = io.connect('http://localhost:3000/');
+        iosocket = io.connect('http://fuelbot.cloudfoundry.com/');
+        //iosocket = io.connect('http://localhost:3000/');
 
         iosocket.on('connect', function () {
             $('#incomingChatMessages').append($('<p>Connected!<br>Logging into freenode...</p>'));
